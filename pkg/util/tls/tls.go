@@ -5,12 +5,22 @@ import (
 	"crypto/x509"
 	"flag"
 	"io/ioutil"
+	"time"
 
 	"github.com/go-kit/kit/log/level"
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	"github.com/cortexproject/cortex/pkg/util"
+)
+
+var (
+	tlsCertNotAfterTimestamp = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "cortex",
+		Name:      "tls_cert_not_after_timestamp",
+		Help:      "Timestamp of when the tls certificate expires",
+	}, []string{"filename"})
 )
 
 // ClientConfig is the config for client TLS.
@@ -45,6 +55,12 @@ func (cfg *ClientConfig) GetTLSConfig() (*tls.Config, error) {
 		caCertPool = x509.NewCertPool()
 		caCertPool.AppendCertsFromPEM(caCert)
 		if len(clientCert.Certificate) > 0 && caCertPool != nil {
+			prometheus.MustRegister(tlsCertNotAfterTimestamp)
+			expiry, err := getCertExpiry(&clientCert)
+			if err != nil {
+				level.Error(util.Logger).Log("error parsing TLS certificate: %v", err)
+			}
+			tlsCertNotAfterTimestamp.WithLabelValues(cfg.CertPath).Set(float64(expiry.Unix()))
 			return &tls.Config{
 				InsecureSkipVerify: true,
 				Certificates:       []tls.Certificate{clientCert},
@@ -66,4 +82,15 @@ func (cfg *ClientConfig) GetGRPCDialOptions() ([]grpc.DialOption, error) {
 		opts = append(opts, grpc.WithInsecure())
 	}
 	return opts, nil
+}
+
+func getCertExpiry(cert *tls.Certificate) (time.Time, error) {
+	// LoadX509KeyPair sets cert.Leaf to nil, because parsed form of certificate
+	// is not retained
+	var x509Cert *x509.Certificate
+	var err error
+	if x509Cert, err = x509.ParseCertificate(cert.Certificate[0]); err != nil {
+		return time.Now(), err
+	}
+	return x509Cert.NotAfter, nil
 }
