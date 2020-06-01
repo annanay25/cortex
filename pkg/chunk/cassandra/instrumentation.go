@@ -15,8 +15,16 @@ var requestDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 	Buckets:   prometheus.ExponentialBuckets(0.001, 4, 9),
 }, []string{"operation", "status_code"})
 
+var totalStreams = prometheus.NewCounterVec(prometheus.CounterOpts{
+	Namespace: "cortex",
+	Subsystem: "gocql",
+	Name:      "cassandra_gocql_available_streams_total",
+	Help:      "Total streams available in gocql connection.",
+}, []string{"address"})
+
 func init() {
 	prometheus.MustRegister(requestDuration)
+	prometheus.MustRegister(totalStreams)
 }
 
 type observer struct{}
@@ -35,4 +43,8 @@ func (observer) ObserveBatch(ctx context.Context, b gocql.ObservedBatch) {
 func (observer) ObserveQuery(cts context.Context, q gocql.ObservedQuery) {
 	parts := strings.SplitN(q.Statement, " ", 2)
 	requestDuration.WithLabelValues(parts[0], err(q.Err)).Observe(q.End.Sub(q.Start).Seconds())
+}
+
+func (observer) ObserveConnect(ctx context.Context, c gocql.ObservedConnect) {
+	requestDuration.WithLabelValues(c.Host.HostnameAndPort()).Observe(float64(c.AvailableStreams))
 }

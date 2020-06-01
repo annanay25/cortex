@@ -79,3 +79,5 @@ replace k8s.io/client-go => k8s.io/client-go v0.17.5
 
 // >v1.2.0 has some conflict with prometheus/alertmanager. Hence prevent the upgrade till it's fixed.
 replace github.com/satori/go.uuid => github.com/satori/go.uuid v1.2.0
+
+replace github.com/gocql/gocql => /Users/annanay/Desktop/git/go/src/github.com/gocql/gocql
