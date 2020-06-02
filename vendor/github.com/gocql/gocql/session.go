@@ -986,21 +986,22 @@ func (q *Query) execute(ctx context.Context, conn *Conn) *Iter {
 	return conn.executeQuery(ctx, q)
 }
 
-func (q *Query) attempt(keyspace string, end, start time.Time, iter *Iter, host *HostInfo) {
+func (q *Query) attempt(keyspace string, availableStreams int, end, start time.Time, iter *Iter, host *HostInfo) {
 	latency := end.Sub(start)
 	attempt, metricsForHost := q.metrics.attempt(1, latency, host, q.observer != nil)
 
 	if q.observer != nil {
 		q.observer.ObserveQuery(q.Context(), ObservedQuery{
-			Keyspace:  keyspace,
-			Statement: q.stmt,
-			Start:     start,
-			End:       end,
-			Rows:      iter.numRows,
-			Host:      host,
-			Metrics:   metricsForHost,
-			Err:       iter.err,
-			Attempt:   attempt,
+			Keyspace:         keyspace,
+			Statement:        q.stmt,
+			AvailableStreams: availableStreams,
+			Start:            start,
+			End:              end,
+			Rows:             iter.numRows,
+			Host:             host,
+			Metrics:          metricsForHost,
+			Err:              iter.err,
+			Attempt:          attempt,
 		})
 	}
 }
@@ -1731,7 +1732,7 @@ func (b *Batch) WithTimestamp(timestamp int64) *Batch {
 	return b
 }
 
-func (b *Batch) attempt(keyspace string, end, start time.Time, iter *Iter, host *HostInfo) {
+func (b *Batch) attempt(keyspace string, availablestreams int, end, start time.Time, iter *Iter, host *HostInfo) {
 	latency := end.Sub(start)
 	_, metricsForHost := b.metrics.attempt(1, latency, host, b.observer != nil)
 
@@ -1955,7 +1956,8 @@ type ObservedQuery struct {
 	// Rows is the number of rows in the current iter.
 	// In paginated queries, rows from previous scans are not counted.
 	// Rows is not used in batch queries and remains at the default value
-	Rows int
+	Rows             int
+	AvailableStreams int
 
 	// Host is the informations about the host that performed the query
 	Host *HostInfo
@@ -2013,8 +2015,7 @@ type BatchObserver interface {
 
 type ObservedConnect struct {
 	// Host is the information about the host about to connect
-	Host             *HostInfo
-	AvailableStreams int
+	Host *HostInfo
 
 	Start time.Time // time immediately before the dial is called
 	End   time.Time // time immediately after the dial returned

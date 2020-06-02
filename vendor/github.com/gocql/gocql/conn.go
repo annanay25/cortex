@@ -178,7 +178,6 @@ func (s *Session) dial(ctx context.Context, host *HostInfo, connConfig *ConnConf
 	}
 
 	conn, err := s.dialWithoutObserver(ctx, host, connConfig, errorHandler)
-	obs.AvailableStreams = conn.AvailableStreams()
 
 	if s.connectObserver != nil {
 		obs.End = time.Now()
