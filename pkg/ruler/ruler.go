@@ -540,7 +540,8 @@ func (r *Ruler) newManager(ctx context.Context, userID string) (*promRules.Manag
 	r.userManagerMetrics.AddUserRegistry(userID, reg)
 
 	logger := log.With(r.logger, "user", userID)
-	return r.managerFactory(ctx, userID, notifier, logger, reg), nil
+	ctx = user.InjectUserID(ctx, userID)
+	return r.managerFactory(ctx, notifier, logger, reg), nil
 }
 
 // GetRules retrieves the running rules from this ruler and all running rulers in the ring if
